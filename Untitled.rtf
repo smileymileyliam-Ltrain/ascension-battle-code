@@ -1,0 +1,237 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2821
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 <!DOCTYPE html>\
+<html lang="en">\
+<head>\
+<meta charset="UTF-8" />\
+<title>Ascension: Battle Code</title>\
+<style>\
+body \{ margin:0; background:black; color:white; font-family:Arial; overflow:hidden; \}\
+canvas \{ display:block; margin:auto; background:#111; \}\
+</style>\
+</head>\
+<body>\
+<canvas id="game" width="900" height="500"></canvas>\
+<script>\
+const canvas = document.getElementById('game');\
+const ctx = canvas.getContext('2d');\
+\
+let state = "TITLE";\
+let selectedMap = null;\
+let mode = null;\
+let p1Char = null;\
+let p2Char = null;\
+\
+const maps = [\
+  \{name:"Dojo", sky:"#3a3a3a", ground:"#1c1c1c"\},\
+  \{name:"Rooftop", sky:"#ff9955", ground:"#2a2a2a"\},\
+  \{name:"Neon Alley", sky:"#2b0033", ground:"#0f0014"\},\
+  \{name:"Forest", sky:"#1f6b3a", ground:"#0f3a20"\},\
+  \{name:"Desert", sky:"#ffd27f", ground:"#caa04a"\},\
+  \{name:"Snow Peak", sky:"#cce6ff", ground:"#ffffff"\},\
+  \{name:"Underground", sky:"#0b0b0b", ground:"#5b0000"\},\
+  \{name:"Temple", sky:"#8c7a5a", ground:"#4a3a24"\},\
+  \{name:"Factory", sky:"#666", ground:"#222"\},\
+  \{name:"Colosseum", sky:"#d4c29a", ground:"#9e8b5e"\}\
+];\
+\
+const characters = [\
+  \{name:"Solar Monk", primary:"orange", accent:"#ffdd88", weapon:null\}, // Goku-inspired\
+  \{name:"Cursed Brawler", primary:"crimson", accent:"#222", weapon:null\}, // Yuji-inspired\
+  \{name:"Void Sorcerer", primary:"#88ccff", accent:"#ffffff", weapon:null\}, // Gojo-inspired\
+  \{name:"Soul Swordsman", primary:"#111", accent:"#ff8800", weapon:"sword"\}, // Ichigo-inspired\
+  \{name:"Rubber Pirate", primary:"#cc0000", accent:"#ffccaa", weapon:"stretch"\}, // Luffy-inspired\
+  \{name:"Shadow Ninja", primary:"#222", accent:"#00ffcc", weapon:"dash"\}, // Naruto-inspired\
+  \{name:"Flame Slayer", primary:"#880000", accent:"#ffaa00", weapon:"slash"\}, // Demon-slayer inspired\
+  \{name:"Titan Fist", primary:"#555", accent:"#aa8866", weapon:"heavy"\}, // AOT-inspired\
+  \{name:"Storm Knight", primary:"#003366", accent:"#66ccff", weapon:"thrust"\}, // Fate-inspired\
+  \{name:"Psychic Esper", primary:"#663399", accent:"#ff66ff", weapon:"blast"\} // Mob-inspired\
+];\
+\
+let keys = \{\};\
+document.addEventListener('keydown', e => keys[e.key] = true);\
+document.addEventListener('keyup', e => keys[e.key] = false);\
+\
+class Fighter \{\
+  constructor(x, char, cpu=false) \{\
+    this.x=x; this.y=360; this.vy=0;\
+    this.char=char; this.hp=100; this.cpu=cpu;\
+    this.cooldown=0; this.attacking=false;\
+  \}\
+  update(opponent) \{\
+    if (!this.cpu) \{\
+      if (this===p1) \{\
+        if (keys['a']) this.x-=4;\
+        if (keys['d']) this.x+=4;\
+        if (keys['w'] && this.y>=360) this.vy=-12;\
+        if (keys['c']) this.attack(opponent,8);\
+        if (keys['v']) this.attack(opponent,12);\
+      \} else \{\
+        if (keys['ArrowLeft']) this.x-=4;\
+        if (keys['ArrowRight']) this.x+=4;\
+        if (keys['ArrowUp'] && this.y>=360) this.vy=-12;\
+        if (keys[' ']) this.attack(opponent,10);\
+      \}\
+    \} else \{\
+      if (this.x < opponent.x-40) this.x+=2;\
+      if (this.x > opponent.x+40) this.x-=2;\
+      if (Math.abs(this.x-opponent.x)<60 && this.cooldown<=0) this.attack(opponent,10);\
+    \}\
+    this.y += this.vy; this.vy += 0.6;\
+    if (this.y>360) \{ this.y=360; this.vy=0; \}\
+    if (this.cooldown>0) this.cooldown--;\
+  \}\
+  attack(opponent, dmg) \{\
+    if (this.cooldown>0) return;\
+    if (Math.abs(this.x-opponent.x)<70) opponent.hp=Math.max(0, opponent.hp-dmg);\
+    this.cooldown=25;\
+    this.attacking=true;\
+  \}\
+  draw() \{\
+    // body\
+    ctx.fillStyle=this.char.primary;\
+    ctx.fillRect(this.x-10,this.y-40,20,40);\
+    // head\
+    ctx.fillStyle=this.char.accent;\
+    ctx.fillRect(this.x-12,this.y-60,24,20);\
+    // arms\
+    ctx.fillStyle=this.char.primary;\
+    ctx.fillRect(this.x-22,this.y-35,12,8);\
+    ctx.fillRect(this.x+10,this.y-35,12,8);\
+    // legs (only TWO)\
+    ctx.fillRect(this.x-10,this.y-5,8,20);\
+    ctx.fillRect(this.x+2,this.y-5,8,20);\
+\
+    // weapon visuals\
+    if (this.char.weapon === "sword") \{\
+      ctx.fillStyle = "#ccc";\
+      ctx.fillRect(this.x+12, this.y-50, 4, 45); // blade\
+      ctx.fillStyle = "#663300";\
+      ctx.fillRect(this.x+10, this.y-10, 8, 6); // handle\
+    \}\
+\
+    if (this.char.weapon === "stretch" && this.attacking) \{\
+      ctx.fillStyle = this.char.primary;\
+      ctx.fillRect(this.x+(this===p1?20:-60), this.y-30, 40, 8); // stretched arm\
+    \}\
+\
+    // attack effect\
+    if (this.attacking) \{\
+      ctx.fillStyle="rgba(255,255,255,0.5)";\
+      ctx.fillRect(this.x+(this===p1?20:-40),this.y-35,20,20);\
+      this.attacking=false;\
+    \}\
+  \}\
+  \}\
+\}\
+\
+let p1,p2;\
+\
+function drawTitle()\{\
+  ctx.clearRect(0,0,900,500);\
+  ctx.font="48px Arial";\
+  ctx.fillText("ASCENSION: BATTLE CODE",100,220);\
+  ctx.font="24px Arial";\
+  ctx.fillText("Press Enter",360,300);\
+  if (keys['Enter']) state="P1_SELECT";\
+\}\
+\
+function drawSelect(title,callback)\{\
+  ctx.clearRect(0,0,900,500);\
+  ctx.font="32px Arial";\
+  ctx.fillText(title,330,60);\
+  characters.forEach((c,i)=>\{\
+    ctx.fillStyle=c.primary;\
+    ctx.fillRect(180+i*220,200,80,100);\
+    ctx.fillStyle="white";\
+    ctx.fillText(c.name,150+i*220,330);\
+  \});\
+  canvas.onclick=e=>\{\
+    const x=e.offsetX;\
+    characters.forEach((c,i)=>\{\
+      if (x>180+i*220 && x<260+i*220) callback(c);\
+    \});\
+  \}\
+\}\
+\
+function drawMapSelect()\{\
+  ctx.clearRect(0,0,900,500);\
+  ctx.font="28px Arial";\
+  ctx.fillText("Select Map",380,40);\
+  maps.forEach((m,i)=>\{\
+    const x=50+(i%5)*170, y=80+Math.floor(i/5)*160;\
+    ctx.fillStyle=m.sky; ctx.fillRect(x,y,150,80);\
+    ctx.fillStyle="white"; ctx.font="14px Arial";\
+    ctx.fillText(m.name,x+10,y+50);\
+  \});\
+  canvas.onclick=e=>\{\
+    const mx=e.offsetX,my=e.offsetY;\
+    maps.forEach((m,i)=>\{\
+      const x=50+(i%5)*170, y=80+Math.floor(i/5)*160;\
+      if (mx>x && mx<x+150 && my>y && my<y+80)\{ selectedMap=m; state="MODE"; \}\
+    \});\
+  \}\
+\}\
+\
+function drawMode()\{\
+  ctx.clearRect(0,0,900,500);\
+  ctx.font="32px Arial";\
+  ctx.fillText("Choose Mode",350,150);\
+  ctx.fillStyle="#ccc";\
+  ctx.fillRect(250,250,150,60);\
+  ctx.fillRect(500,250,150,60);\
+  ctx.fillStyle="black";\
+  ctx.fillText("CPU",295,290);\
+  ctx.fillText("2P",560,290);\
+  canvas.onclick=e=>\{\
+    if (e.offsetX>250 && e.offsetX<400) \{ mode="CPU"; state="CPU_SELECT"; \}\
+    if (e.offsetX>500 && e.offsetX<650) \{ mode="P2"; state="P2_SELECT"; \}\
+  \}\
+\}\
+\
+function startFight()\{\
+  p1=new Fighter(250,p1Char,false);\
+  p2=new Fighter(650,p2Char,mode==="CPU");\
+  state="FIGHT";\
+\}\
+\
+function drawFight()\{\
+  ctx.fillStyle=selectedMap.sky; ctx.fillRect(0,0,900,500);\
+  ctx.fillStyle=selectedMap.ground; ctx.fillRect(0,420,900,80);\
+  p1.update(p2); p2.update(p1);\
+  p1.draw(); p2.draw();\
+  ctx.fillStyle="red"; ctx.fillRect(50,30,p1.hp*2,15);\
+  ctx.fillRect(600,30,p2.hp*2,15);\
+  if (p1.hp<=0 || p2.hp<=0) state="KO";\
+\}\
+\
+function drawKO()\{\
+  ctx.clearRect(0,0,900,500);\
+  ctx.font="60px Arial";\
+  ctx.fillText("K.O.",400,220);\
+  ctx.font="20px Arial";\
+  ctx.fillText("Press R to Restart",360,280);\
+  if (keys['r']) state="TITLE";\
+\}\
+\
+function loop()\{\
+  if (state==="TITLE") drawTitle();\
+  if (state==="P1_SELECT") drawSelect("Player 1 Select",c=>\{p1Char=c; state="MAP"\});\
+  if (state==="MAP") drawMapSelect();\
+  if (state==="MODE") drawMode();\
+  if (state==="CPU_SELECT") drawSelect("CPU Select",c=>\{p2Char=c; startFight();\});\
+  if (state==="P2_SELECT") drawSelect("Player 2 Select",c=>\{p2Char=c; startFight();\});\
+  if (state==="FIGHT") drawFight();\
+  if (state==="KO") drawKO();\
+  requestAnimationFrame(loop);\
+\}\
+loop();\
+</script>\
+</body>\
+</html>\
+}
